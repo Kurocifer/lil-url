@@ -54,7 +54,7 @@ func (s *Shortner) LookupURL(shortURL string) error {
 		return fmt.Errorf("URL %s does not map to any known URL", shortURL)
 	}
 
-	fmt.Printf("Original URL: %s", longURL)
+	fmt.Printf("Original URL: %s ", longURL)
 
 	if prompt("Open URL in broswr ?") {
 		err := openInBrowser(longURL)
@@ -104,6 +104,7 @@ func (s *Shortner) saveURLs(urlMap map[string]string) error {
 
 	writer := bufio.NewWriter(file)
 	for key, value := range urlMap {
+		value = appendProtocol(value)
 		_, err := fmt.Fprintf(writer, "%s %s\n", key, value)
 		if err != nil {
 			return err
@@ -153,4 +154,12 @@ func prompt(message string) bool {
 	response = strings.TrimSpace(strings.ToLower(response))
 
 	return response == "y"
+}
+
+func appendProtocol(url string) string {
+	if !strings.HasPrefix(url, "http://") || !strings.HasPrefix(url, "https://") {
+		url = "https://" + url
+	}
+
+	return url
 }
