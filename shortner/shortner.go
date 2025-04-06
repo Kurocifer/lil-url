@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/crc32"
-	"io/fs"
+	"kurocfer/lil-url/utils"
 	"os"
 	"os/exec"
 	"runtime"
@@ -16,7 +16,7 @@ type Shortner struct {
 	storageFile string
 }
 
-var baseURL = "http://lilurl"
+var baseURL = "/lilurl"
 
 func NewShortner(storageFile string) *Shortner {
 	return &Shortner{
@@ -25,7 +25,7 @@ func NewShortner(storageFile string) *Shortner {
 }
 
 func (s *Shortner) Shorten(longURL string) (string, error) {
-	urlMap, err := s.loadURLs()
+	urlMap, err := utils.LoadURLs(s.storageFile)
 	if err != nil {
 		return "", err
 	}
@@ -35,7 +35,7 @@ func (s *Shortner) Shorten(longURL string) (string, error) {
 		return shortURL, nil
 	}
 	urlMap[shortURL] = longURL
-	err = s.saveURLs(urlMap)
+	err = utils.SaveURLs(urlMap, s.storageFile)
 	if err != nil {
 		return "", fmt.Errorf("encountered an error while saving new link: %w", err)
 	}
@@ -44,7 +44,7 @@ func (s *Shortner) Shorten(longURL string) (string, error) {
 }
 
 func (s *Shortner) LookupURL(shortURL string) error {
-	urlMap, err := s.loadURLs()
+	urlMap, err := utils.LoadURLs(s.storageFile)
 	if err != nil {
 		return fmt.Errorf("an error occured while loading URLs: %s", err)
 	}
@@ -67,7 +67,7 @@ func (s *Shortner) LookupURL(shortURL string) error {
 }
 
 func (s *Shortner) List(numLines int) error {
-	urlMap, err := s.loadURLs()
+	urlMap, err := utils.LoadURLs(s.storageFile)
 	if err != nil {
 		return err
 	}
@@ -83,54 +83,6 @@ func (s *Shortner) List(numLines int) error {
 	fmt.Printf("total %d\n", linesPrinted)
 
 	return nil
-}
-
-func (s *Shortner) loadURLs() (map[string]string, error) {
-	urlMap := make(map[string]string)
-
-	file, err := os.Open(s.storageFile)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return urlMap, nil
-		} else {
-			return nil, err
-		}
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		parts := strings.SplitN(line, " ", 2)
-		if len(parts) == 2 {
-			urlMap[parts[0]] = parts[1]
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-
-	return urlMap, nil
-}
-
-func (s *Shortner) saveURLs(urlMap map[string]string) error {
-	file, err := os.OpenFile(s.storageFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	writer := bufio.NewWriter(file)
-	for key, value := range urlMap {
-		value = appendProtocol(value)
-		_, err := fmt.Fprintf(writer, "%s %s\n", key, value)
-		if err != nil {
-			return err
-		}
-	}
-
-	return writer.Flush()
 }
 
 func (s *Shortner) Clear() error {
@@ -187,12 +139,4 @@ func prompt(message string) bool {
 	response = strings.TrimSpace(strings.ToLower(response))
 
 	return response == "y"
-}
-
-func appendProtocol(url string) string {
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		url = "https://" + url
-	}
-
-	return url
 }
