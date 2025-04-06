@@ -66,6 +66,25 @@ func (s *Shortner) LookupURL(shortURL string) error {
 	return nil
 }
 
+func (s *Shortner) List(numLines int) error {
+	urlMap, err := s.loadURLs()
+	if err != nil {
+		return err
+	}
+
+	linesPrinted := 0
+	for key, value := range urlMap {
+		if linesPrinted == numLines {
+			break
+		}
+		fmt.Printf("Shortened -> %s : Original -> %s\n", key, value)
+		linesPrinted++
+	}
+	fmt.Printf("total %d\n", linesPrinted)
+
+	return nil
+}
+
 func (s *Shortner) loadURLs() (map[string]string, error) {
 	urlMap := make(map[string]string)
 
@@ -114,6 +133,20 @@ func (s *Shortner) saveURLs(urlMap map[string]string) error {
 	return writer.Flush()
 }
 
+func (s *Shortner) Clear() error {
+	file, err := os.OpenFile(s.storageFile, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	if _, err := file.WriteString(""); err != nil {
+		return fmt.Errorf("an error occured while attempting to clear file %w", err)
+	}
+
+	return nil
+}
+
 func compressURL(value string) string {
 	hash := crc32.ChecksumIEEE([]byte(value))
 	shortnedValue := fmt.Sprintf("%08X", hash)
@@ -157,7 +190,7 @@ func prompt(message string) bool {
 }
 
 func appendProtocol(url string) string {
-	if !strings.HasPrefix(url, "http://") || !strings.HasPrefix(url, "https://") {
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		url = "https://" + url
 	}
 
